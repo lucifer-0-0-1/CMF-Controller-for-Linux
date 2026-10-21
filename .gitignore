@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+*.etl
+silence.wav
+dial_log.txt
+trace/hold.etl
+tools/*.txt
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+.idea/
+tools/calib/
+
+# Mac guided test output (screenshots, logs)
+mac_test_report/
+site/orbit.png
+build/
+dist/
+Orbit.spec

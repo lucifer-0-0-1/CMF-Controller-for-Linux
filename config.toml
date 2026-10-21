@@ -1,0 +1,247 @@
+# Orbit config - dial + wheel.
+# These are the built-in defaults. To change something, put just those keys in
+# %APPDATA%\Orbit\config.toml (Windows) or ~/Library/Application Support/Orbit/config.toml
+# (mac); tray > Open config creates it. It is merged over this file, so new defaults
+# still arrive with updates.
+#
+# Action strings:  keys:ctrl+z | scroll:3 | hscroll:-2 | media:play_pause|next|previous
+#                  launch:notepad.exe | launch:https://... | tool:<id> | open_wheel | none
+#                  or a list: ["keys:ctrl+c", "launch:notepad.exe"]
+
+default_tool = "volume"
+
+[device]
+# Name fragment of the audio output the buds show up as. Rotation is only read from this device.
+audio_endpoint_match = "CMF Buds Pro 2"
+
+[gestures]
+# What presses do while a tool is active, unless that tool defines its own click/double/triple.
+click  = "media:play_pause"
+triple = "last_tool"        # flip between the two most recent tools
+# hold: open Claude Quick Entry (same key as in Claude > Settings > Keyboard shortcuts),
+# bring it to the middle of the screen you're on, then start Windows voice typing into it.
+hold   = ["claude_shortcut", "center:Claude", "wait:250", "keys:win+h"]
+# Gestures that open the wheel (they win over any tool binding). Inside the wheel,
+# double / triple / hold close it without changing anything.
+open_wheel = ["double"]
+# Used if none of the above can be read (e.g. only "hold" listed and not running as admin).
+open_wheel_fallback = "triple"
+
+[claude]
+# The Quick Entry shortcut set in Claude > Settings > Keyboard shortcuts. Also editable in
+# Orbit's Settings window. "claude_shortcut" in any action presses it.
+shortcut = "ctrl+alt+v"
+
+[wheel]
+# Clockwise order, starting at 12 o'clock. 8 or fewer reads best on a dial.
+items = ["volume", "brightness", "switcher", "scroll", "undo", "desktops", "tabs", "voice", "slides", "scrub"]   # zoom: off by default
+dismiss_after_ms = 5000
+duck_volume = 0.5           # audio drops to this fraction while the wheel is open (1 = off)
+accel = 1                   # 1 = one item per click. 2 = fast reports move 2 (can skip one on quick deliberate clicks)
+on_timeout = "select"       # "select": keep the highlighted tool; "cancel": keep the old one
+
+[ui]
+hide_os_volume_flyout = true   # hide the Windows volume bar when the dial causes it (keyboard keys still show it)
+hud_ms = 1400       # how long the HUD pill stays after the last interaction
+scale = 1.0
+accent = "#7C9CFF"
+appearance = "dark" # dark | light | system (follows the OS)
+
+# ---------------------------------------------------------------- tools
+[tools.volume]
+type = "volume"
+label = "Volume"
+icon = "volume"
+triple = "media:next"
+
+[tools.brightness]
+type = "brightness"        # drives Twinkle Tray, so its slider stays in sync
+label = "Brightness"
+icon = "brightness"
+step = 5                   # % per careful click
+max_gain = 3               # fast spins move up to this many times further
+
+[tools.switcher]
+type = "window_switcher"
+label = "Windows"
+icon = "windows"
+commit_after_ms = 900
+
+[tools.scroll]
+type = "smooth_scroll"     # momentum scrolling: slow clicks nudge, fast spins fly and glide
+label = "Scroll"
+icon = "scroll"
+notches_per_detent = 1.0   # distance of one careful click (1 notch ~ 3 lines)
+max_gain = 4.5             # turning faster than the buds report goes up to this many times further (tuned on the Mac)
+glide_ms = 300             # how long momentum carries after you stop (0 = none)
+ease_ms = 90               # how quickly each click's distance is delivered
+
+[tools.zoom]
+type = "keys"
+label = "Zoom"
+icon = "zoom"
+rotate_cw = "keys:ctrl+plus"
+rotate_ccw = "keys:ctrl+minus"
+click = "keys:ctrl+0"
+detail_cw = "in"
+detail_ccw = "out"
+
+[tools.slides]
+type = "keys"               # presentations: PowerPoint, Keynote, Google Slides, PDF viewers
+label = "Slides"
+icon = "presentation"
+rotate_cw = "keys:right"    # one slide per click, never sped up
+rotate_ccw = "keys:left"
+detail_cw = "next slide"
+detail_ccw = "previous slide"
+click = "keys:b"            # black screen on / off (during the slideshow)
+detail_click = "black screen on / off"
+
+[tools.scrub]
+type = "smooth_scroll"      # video timeline (DaVinci Resolve, Premiere, Final Cut): pans the view
+horizontal = true           # smooth sideways scroll to the timeline under the mouse pointer;
+label = "Timeline"          # the playhead stays put. (type = "scrub" steps the playhead instead:
+icon = "film"               #  arrows per click, Shift+arrows when turning fast.)
+notches_per_detent = 1.0
+max_gain = 4
+detail_cw = "later"
+detail_ccw = "earlier"
+click = "keys:space"        # play / pause
+detail_click = "play / pause"
+
+[tools.camera]
+type = "keys"
+label = "Camera"
+icon = "camera"
+click = "button:Camera|^Take (photo|video)"   # the Windows Camera app's shutter button
+detail_click = "shutter"
+
+[tools.undo]
+type = "keys"
+label = "Undo / Redo"
+icon = "undo"
+rotate_cw = "keys:ctrl+y"
+rotate_ccw = "keys:ctrl+z"
+detail_cw = "redo"
+detail_ccw = "undo"
+
+[tools.desktops]
+type = "keys"
+label = "Desktops"
+icon = "desktops"
+rotate_cw = "keys:ctrl+win+right"
+rotate_ccw = "keys:ctrl+win+left"
+click = "keys:win+tab"
+detail_cw = "next"
+detail_ccw = "previous"
+
+[tools.tabs]
+type = "keys"
+label = "Tabs"
+icon = "tabs"
+rotate_cw = "keys:ctrl+tab"
+rotate_ccw = "keys:ctrl+shift+tab"
+click = "keys:ctrl+w"
+detail_cw = "next tab"
+detail_ccw = "previous tab"
+
+[tools.voice]
+type = "action"
+label = "Dictate"
+icon = "mic"
+run = "keys:win+h"
+
+[tools.mic_mute]
+type = "mic_mute"
+label = "Mic Mute"
+icon = "mic"
+
+[tools.anc]
+type = "anc"
+label = "ANC Mode"
+icon = "volume"
+
+[tools.phone]
+type = "phone"
+label = "Nothing Phone"
+icon = "bolt"
+
+# ---------------------------------------------------------------- per-platform
+# Anything under [platforms.<windows|mac|linux>] is merged over the settings above on
+# that platform only, key by key.
+
+[platforms.linux.tools.scroll]
+max_gain = 3.5
+
+[platforms.linux.tools.switcher]
+label = "Windows"
+modifier = "alt"           # hold Alt, Tab per click: Linux Alt+Tab switcher
+
+[platforms.linux.tools.zoom]
+rotate_cw = "keys:ctrl+equals"
+rotate_ccw = "keys:ctrl+minus"
+click = "keys:ctrl+0"
+
+[platforms.linux.tools.undo]
+rotate_cw = "keys:ctrl+y"
+rotate_ccw = "keys:ctrl+z"
+
+[platforms.linux.tools.desktops]
+label = "Workspaces"
+rotate_cw = "keys:ctrl+alt+right"   # KDE Plasma desktop right
+rotate_ccw = "keys:ctrl+alt+left"    # KDE Plasma desktop left
+click = "keys:meta+w"               # KDE Plasma Overview / Grid
+
+[platforms.linux.tools.tabs]
+click = "keys:ctrl+w"
+
+[platforms.linux.tools.voice]
+label = "Search"
+run = "keys:meta+space"             # KDE KRunner launcher
+
+[platforms.linux.tools.camera]
+click = "cmd:spectacle -r"          # KDE Spectacle screenshot
+
+[platforms.linux.gestures]
+hold = "open_wheel"
+
+# ---------------------------------------------------------------- Windows & Mac
+
+[platforms.windows.tools.scroll]
+max_gain = 3.5             # Windows apps scroll further per wheel notch than macOS ones
+
+[platforms.mac.tools.camera]
+click = "keys:cmd+t"       # Photo Booth: take photo
+detail_click = "shutter (Photo Booth)"
+
+[platforms.mac.gestures]
+hold = "none"              # macOS gives apps no way to see the dial's hold; double opens the wheel
+
+[platforms.mac.tools.switcher]
+label = "Apps"
+modifier = "cmd"           # hold Cmd, Tab per click: the real macOS app switcher
+
+[platforms.mac.tools.zoom]
+rotate_cw = "keys:cmd+equals"
+rotate_ccw = "keys:cmd+minus"
+click = "keys:cmd+0"
+
+[platforms.mac.tools.undo]
+rotate_cw = "keys:cmd+shift+z"
+rotate_ccw = "keys:cmd+z"
+
+[platforms.mac.tools.desktops]
+label = "Spaces"
+rotate_cw = "keys:ctrl+right"
+rotate_ccw = "keys:ctrl+left"
+click = "keys:ctrl+up"     # Mission Control
+
+[platforms.mac.tools.tabs]
+click = "keys:cmd+w"
+
+[platforms.mac.tools.voice]
+label = "Claude"
+run = "launch:Claude"      # macOS: opens the Claude app (Quick Entry dictation is built in there)
+
+[platforms.mac.tools.brightness]
+# built-in display via DisplayServices; external monitors via m1ddc if installed
