@@ -1,6 +1,7 @@
 """Unit tests for the Linux platform backend and extra CMF / Nothing tools."""
 import unittest
 import time
+import evdev
 from unittest.mock import MagicMock, patch
 
 from orbit.platform import get_platform
@@ -73,6 +74,35 @@ class TestLinuxPlatform(unittest.TestCase):
 
         t_phone = tools.build("phone", {"type": "phone", "label": "Nothing Phone"})
         self.assertEqual(t_phone.label, "Nothing Phone")
+
+    def test_linux_duck_volume_disabled(self):
+        from orbit.core import config as cfg_mod
+        cfg, _ = cfg_mod.load(platform="linux")
+        # On Linux, duck_volume is 1.0 (disabled) so volume does not drop when opening wheel
+        self.assertEqual(cfg["wheel"]["duck_volume"], 1.0)
+
+    def test_high_res_scroll_accumulation(self):
+        from orbit.platform.linux.output import LinuxOutput
+        out = LinuxOutput()
+        if out._ui is None:
+            self.skipTest("uinput not accessible")
+
+        written_events = []
+        out._ui.write = lambda ev_type, code, val: written_events.append((ev_type, code, val))
+        out._ui.syn = lambda: None
+
+        # Scroll 0.5 notches down (positive in Orbit -> negative in evdev)
+        out.scroll(0.5)
+        # 0.5 * 120 = 60 units
+        self.assertIn((evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL_HI_RES, -60), written_events)
+        # Discrete wheel should not have fired yet (needs 120 units)
+        self.assertNotIn((evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL, -1), written_events)
+
+        # Another 0.5 notches (total 1.0 notch = 120 units)
+        written_events.clear()
+        out.scroll(0.5)
+        self.assertIn((evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL_HI_RES, -60), written_events)
+        self.assertIn((evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL, -1), written_events)
 
 
 if __name__ == "__main__":

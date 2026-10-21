@@ -203,6 +203,8 @@ class VolumeDial:
 
             self._last_move = self._last_dial = now
             if not self._passthrough:
+                if self._home is None and self._level is not None:
+                    self._home = self._snap_home(self._level)
                 k = round(level * self._grid())
                 if k <= EDGE_STEPS or k >= self._grid() - EDGE_STEPS:
                     self._last_move = 0.0                              # at an end: recenter now
@@ -262,7 +264,8 @@ class VolumeDial:
             if self._stop.is_set():
                 break
             if self._need_recenter:
-                wait = RECENTER_IDLE_S - (time.monotonic() - self._last_move)
+                idle_limit = 0.04 if not self._passthrough else RECENTER_IDLE_S
+                wait = idle_limit - (time.monotonic() - self._last_move)
                 if wait <= 0:
                     with self._lock:
                         home, self._need_recenter = self._home, False

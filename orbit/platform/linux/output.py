@@ -85,13 +85,21 @@ def _resolve_code(name: str) -> int | None:
 class LinuxOutput(Output):
     def __init__(self):
         self._ui: UInput | None = None
+        self._scroll_accum = 0.0
+        self._hscroll_accum = 0.0
         self._init_uinput()
 
     def _init_uinput(self):
         try:
+            rel_events = [e.REL_WHEEL, e.REL_HWHEEL]
+            if hasattr(e, "REL_WHEEL_HI_RES"):
+                rel_events.append(e.REL_WHEEL_HI_RES)
+            if hasattr(e, "REL_HWHEEL_HI_RES"):
+                rel_events.append(e.REL_HWHEEL_HI_RES)
+
             capabilities = {
                 e.EV_KEY: list(set(_KEY_MAP.values())),
-                e.EV_REL: [e.REL_WHEEL, e.REL_HWHEEL],
+                e.EV_REL: rel_events,
             }
             self._ui = UInput(
                 capabilities,
@@ -141,13 +149,30 @@ class LinuxOutput(Output):
     def scroll(self, notches: float, horizontal: bool = False) -> None:
         if not self._ui:
             return
-        axis = e.REL_HWHEEL if horizontal else e.REL_WHEEL
-        # Orbit convention: +notches = down / right
-        # Linux evdev: REL_WHEEL positive = up, negative = down
-        val = -int(round(notches))
-        if val == 0:
-            val = -1 if notches > 0 else 1
-        self._ui.write(e.EV_REL, axis, val)
+        # Orbit: +notches = down / right
+        # Linux evdev: REL_WHEEL negative = down, positive = up
+        if horizontal:
+            units = notches * 120.0
+            self._hscroll_accum += units
+            int_units = int(round(units))
+            discrete = int(self._hscroll_accum / 120.0)
+            if discrete != 0:
+                self._hscroll_accum -= discrete * 120.0
+                self._ui.write(e.EV_REL, e.REL_HWHEEL, discrete)
+            if int_units != 0 and hasattr(e, "REL_HWHEEL_HI_RES"):
+                self._ui.write(e.EV_REL, e.REL_HWHEEL_HI_RES, int_units)
+            self._ui.syn()
+        else:
+            units = -notches * 120.0  # negative = down
+            self._scroll_accum += units
+            int_units = int(round(units))
+            discrete = int(self._scroll_accum / 120.0)
+            if discrete != 0:
+                self._scroll_accum -= discrete * 120.0
+                self._ui.write(e.EV_REL, e.REL_WHEEL, discrete)
+            if int_units != 0 and hasattr(e, "REL_WHEEL_HI_RES"):
+                self._ui.write(e.EV_REL, e.REL_WHEEL_HI_RES, int_units)
+            self._ui.syn()
         self._ui.syn()
 
     # ---- Media (MPRIS2 forwarding to real player)

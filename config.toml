@@ -170,8 +170,14 @@ icon = "bolt"
 # Anything under [platforms.<windows|mac|linux>] is merged over the settings above on
 # that platform only, key by key.
 
+[platforms.linux.wheel]
+duck_volume = 1.0           # On Linux: keep listening volume constant when wheel opens
+
 [platforms.linux.tools.scroll]
-max_gain = 3.5
+max_gain = 3.0
+notches_per_detent = 1.0
+glide_ms = 180
+ease_ms = 70
 
 [platforms.linux.tools.switcher]
 label = "Windows"

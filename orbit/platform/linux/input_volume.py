@@ -148,8 +148,6 @@ class LinuxVolumeRotationSource(RotationSource):
                         break
                     # We are interested in sink changes or server changes
                     if "Event 'change' on sink" in line or "Event 'new' on sink" in line:
-                        # Brief debounce to allow the sound server to settle
-                        time.sleep(0.03)
                         lvl = self.get_level()
                         if lvl is None or not self.dial:
                             continue
