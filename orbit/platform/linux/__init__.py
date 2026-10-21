@@ -12,7 +12,7 @@ Output:
 from __future__ import annotations
 
 import logging
-from orbit.platform.base import Platform
+from orbit.platform.base import InputSource, Platform
 from orbit.platform.linux.input_volume import LinuxVolumeRotationSource
 from orbit.platform.linux.input_media import EventDeduplicator, LinuxEvdevButtonSource, MPRISInputSource
 from orbit.platform.linux.output import LinuxOutput
@@ -50,7 +50,7 @@ class LinuxPlatform(Platform):
         # MPRIS D-Bus listener
         mpris_src = MPRISInputSource(dedup=dedup)
 
-        class _CompositeButtonSource:
+        class _CompositeButtonSource(InputSource):
             name = "linux-buttons"
             capabilities = evdev_src.capabilities
 
