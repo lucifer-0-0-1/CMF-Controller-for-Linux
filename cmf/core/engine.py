@@ -75,10 +75,18 @@ class ControllerEngine:
         self._app_page: int = 0
         self._apps_items: list[dict] = []
 
+    def recenter_dial(self):
+        if self.dial_source and hasattr(self.dial_source, "recenter"):
+            try:
+                self.dial_source.recenter()
+            except Exception:
+                pass
+
     def set_tool(self, tid: str):
         if tid in self.tools:
             self.active_tool = self.tools[tid]
             self._sync_passthrough()
+            self.recenter_dial()
             h = Hud(self.active_tool.icon, self.active_tool.label)
             self.ui.hud(h)
 
@@ -87,6 +95,7 @@ class ControllerEngine:
         self.index = self.wheel_ids.index(self.active_tool.id) if self.active_tool.id in self.wheel_ids else 0
         self._wheel_last = time.monotonic()
         self._sync_passthrough()
+        self.recenter_dial()
         items = [self.tools[tid].to_item() for tid in self.wheel_ids]
         self.ui.wheel_open(items, self.index)
         log.info("opened main wheel at index %d (%s)", self.index, self.wheel_ids[self.index])
@@ -140,6 +149,7 @@ class ControllerEngine:
         self.index = 1 if len(items) > 1 else 0
         self._wheel_last = time.monotonic()
         self._sync_passthrough()
+        self.recenter_dial()
         self.ui.wheel_open(items, self.index)
         log.info("opened applications wheel page %d/%d", page + 1, total_pages)
 
@@ -182,6 +192,7 @@ class ControllerEngine:
         tool = self.tools[tid]
         self.ui.wheel_commit(self.index)
         self.state = State.TOOL
+        self.recenter_dial()
 
         if tool.sticky:
             self.active_tool = tool
@@ -197,6 +208,7 @@ class ControllerEngine:
         self.state = State.TOOL
         self.ui.wheel_cancel()
         self._sync_passthrough()
+        self.recenter_dial()
 
     def _handle_apps_wheel(self, ev: Event):
         self._wheel_last = time.monotonic()
@@ -227,6 +239,7 @@ class ControllerEngine:
             self.ui.wheel_commit(self.index)
             self.state = State.TOOL
             self._sync_passthrough()
+            self.recenter_dial()
             self.ui.hud(Hud(app.icon, app.name, "Launched"))
 
     def _sync_passthrough(self):

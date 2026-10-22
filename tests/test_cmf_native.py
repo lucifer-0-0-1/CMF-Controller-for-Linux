@@ -82,20 +82,32 @@ class TestCMFBlueZDial(unittest.TestCase):
         self.assertEqual(self.events[0].delta, 3)
 
     def test_recenter_at_boundary(self):
-        self.dial._last_vol = 108
-        # Crosses EDGE_HIGH (112) -> should schedule recenter to CENTER_VOL (64)
-        self._send_vol(116)
+        self.dial._last_vol = 80
+        # Crosses EDGE_HIGH (88) -> triggers emergency recenter to CENTER_VOL (64)
+        self._send_vol(88)
         self.assertEqual(len(self.events), 1)
         self.dial._transport_props.Set.assert_called_with("org.bluez.MediaTransport1", "Volume", dbus_uint16(CENTER_VOL))
 
     def test_ignore_recenter_echo(self):
-        self.dial._ignore_our_set = True
-        self.dial._last_vol = 112
+        self.dial._pending_recenter_target = 64
+        self.dial._pending_recenter_time = time.monotonic()
+        self.dial._last_vol = 88
         self._send_vol(64)
         # Recenter echo must NOT emit an event to the engine
         self.assertEqual(len(self.events), 0)
-        self.assertFalse(self.dial._ignore_our_set)
+        self.assertIsNone(self.dial._pending_recenter_target)
         self.assertEqual(self.dial._last_vol, 64)
+
+    def test_user_detent_during_pending_recenter_not_swallowed(self):
+        self.dial._pending_recenter_target = 64
+        self.dial._pending_recenter_time = time.monotonic()
+        self.dial._last_vol = 88
+        # User turns one more notch before the 64 echo arrives
+        self._send_vol(96)
+        # Detent MUST NOT be swallowed!
+        self.assertEqual(len(self.events), 1)
+        self.assertEqual(self.events[0].delta, 1)
+        self.assertEqual(self.dial._pending_recenter_target, 64)
 
 
 def dbus_uint16(val):
@@ -244,8 +256,7 @@ class TestCMFEngine(unittest.TestCase):
         self.engine.handle(Event(Kind.HOLD, source="buttons"))
         self.assertEqual(self.engine.state, State.WHEEL)
         self.assertEqual(len(self.ui.opened), 1)
-        # Dial passthrough must be disabled in wheel!
-        self.dial_source.set_passthrough.assert_called_with(False)
+        self.dial_source.recenter.assert_called()
 
     def test_wheel_navigation_and_selection(self):
         self.engine.open_wheel()
