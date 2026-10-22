@@ -173,7 +173,6 @@ class LinuxOutput(Output):
             if int_units != 0 and hasattr(e, "REL_WHEEL_HI_RES"):
                 self._ui.write(e.EV_REL, e.REL_WHEEL_HI_RES, int_units)
             self._ui.syn()
-        self._ui.syn()
 
     # ---- Media (MPRIS2 forwarding to real player)
     def media(self, command: str) -> None:

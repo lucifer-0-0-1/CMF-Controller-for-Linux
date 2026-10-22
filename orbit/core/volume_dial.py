@@ -109,8 +109,13 @@ class VolumeDial:
                 return
             self._passthrough = on
             if not on and self._level is not None:
+                self._saved_passthrough_level = self._level
                 self._home = self._snap_home(self._level)
                 self._need_recenter = True
+            elif on and getattr(self, "_saved_passthrough_level", None) is not None:
+                self._apply = self._saved_passthrough_level
+                self._home = self._saved_passthrough_level
+                self._saved_passthrough_level = None
         self._wake.set()
 
     def set_duck(self, factor: float | None):
@@ -264,7 +269,7 @@ class VolumeDial:
             if self._stop.is_set():
                 break
             if self._need_recenter:
-                idle_limit = 0.04 if not self._passthrough else RECENTER_IDLE_S
+                idle_limit = 0.0 if not self._passthrough else RECENTER_IDLE_S
                 wait = idle_limit - (time.monotonic() - self._last_move)
                 if wait <= 0:
                     with self._lock:

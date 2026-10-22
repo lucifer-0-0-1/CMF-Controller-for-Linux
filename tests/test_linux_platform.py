@@ -104,6 +104,75 @@ class TestLinuxPlatform(unittest.TestCase):
         self.assertIn((evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL_HI_RES, -60), written_events)
         self.assertIn((evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL, -1), written_events)
 
+    def test_apps_tool_and_wheel(self):
+        from orbit.core import tools
+        from orbit.core.engine import Engine, State
+        from orbit.core.events import InputEvent, Kind
+        from orbit.platform.linux.apps import AppInfo
+        from tests.test_engine import FakeOut, FakeUI, FakeRot, FakeSrc
+
+        t_apps = tools.build("apps", {"type": "apps", "label": "Applications", "icon": "app"})
+        self.assertEqual(t_apps.label, "Applications")
+        self.assertEqual(t_apps.icon, "app")
+        self.assertFalse(t_apps.sticky)
+
+        # Test engine apps wheel
+        cfg = {
+            "wheel": {"items": ["volume", "apps"], "dismiss_after_ms": 5000, "duck_volume": 1.0, "accel": 1},
+            "tools": {
+                "volume": {"type": "volume"},
+                "apps": {"type": "apps"},
+            },
+            "gestures": {"open_wheel": ["double"]},
+            "ui": {"accent": "#D71921"},
+            "device": {},
+        }
+        out, ui, rot = FakeOut(), FakeUI(), FakeRot()
+        e = Engine(cfg, out, ui, [rot, FakeSrc([])])
+
+        # Inject fake apps
+        fake_app = AppInfo(
+            id="firefox",
+            name="Firefox",
+            icon="firefox",
+            exec_cmd="firefox",
+            desktop_file="/usr/share/applications/firefox.desktop",
+            categories=["Network"],
+        )
+
+        # Mock scan_applications in engine
+        import orbit.platform.linux.apps as apps_mod
+        orig_scan = apps_mod.scan_applications
+        apps_mod.scan_applications = lambda: [fake_app]
+        try:
+            # Trigger apps wheel
+            e.open_apps_wheel()
+            self.assertEqual(e.state, State.APPS_WHEEL)
+            self.assertEqual(len(e._apps_items), 2)  # [Back, Firefox]
+            self.assertEqual(e._apps_items[0]["id"], "back")
+            self.assertEqual(e._apps_items[1]["id"], "app:firefox")
+
+            # Click on Back returns to main wheel
+            e.index = 0
+            e.handle(InputEvent(Kind.CLICK, 0, "test"))
+            self.assertEqual(e.state, State.WHEEL)
+
+            # Open apps wheel again, rotate to app, and click to launch
+            e.open_apps_wheel()
+            self.assertEqual(e.state, State.APPS_WHEEL)
+            e.index = 1
+            launched = []
+            orig_launch = apps_mod.launch
+            apps_mod.launch = lambda app: launched.append(app.name)
+            try:
+                e.handle(InputEvent(Kind.CLICK, 0, "test"))
+                self.assertEqual(e.state, State.TOOL)
+                self.assertEqual(launched, ["Firefox"])
+            finally:
+                apps_mod.launch = orig_launch
+        finally:
+            apps_mod.scan_applications = orig_scan
+
 
 if __name__ == "__main__":
     unittest.main()

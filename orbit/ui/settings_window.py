@@ -487,19 +487,253 @@ class _AppRow(QFrame):
         h.addWidget(self.edit)
 
 
+class ControlCenterCard(QFrame):
+    """Nothing Ecosystem Control Center: Live CMF Buds & Nothing Phone cards,
+    direct ANC toggles, and Applications Quick Launcher."""
+
+    def __init__(self, win: "SettingsWindow", engine=None):
+        super().__init__()
+        self.win = win
+        self.engine = engine
+        self.setObjectName("group")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(14)
+
+        # Header with Nothing OS dot-matrix styling
+        hdr_layout = QHBoxLayout()
+        title = QLabel("NOTHING CONTROL CENTER")
+        title.setFont(_font(12, QFont.Bold))
+        title.setStyleSheet(f"color: {win.accent}; letter-spacing: 1.2px;")
+        hdr_layout.addWidget(title)
+        hdr_layout.addStretch(1)
+
+        # Quick Wheel Buttons
+        btn_wheel = QPushButton("Show Wheel")
+        btn_wheel.setCursor(Qt.PointingHandCursor)
+        btn_wheel.setIcon(_icon("orbit_tray", INK))
+        btn_wheel.clicked.connect(self._open_wheel)
+        hdr_layout.addWidget(btn_wheel)
+
+        btn_app_wheel = QPushButton("Apps Wheel")
+        btn_app_wheel.setCursor(Qt.PointingHandCursor)
+        btn_app_wheel.setIcon(_icon("app", INK))
+        btn_app_wheel.clicked.connect(self._open_apps_wheel)
+        hdr_layout.addWidget(btn_app_wheel)
+
+        layout.addLayout(hdr_layout)
+
+        # Cards Row: CMF Buds Pro 2 & Nothing Phone 4b
+        cards_row = QHBoxLayout()
+        cards_row.setSpacing(12)
+
+        # Card 1: CMF Buds Pro 2
+        buds_card = QFrame()
+        buds_card.setStyleSheet(f"background: #20242D; border: 1px solid {HAIR}; border-radius: 8px;")
+        b_lay = QVBoxLayout(buds_card)
+        b_lay.setContentsMargins(12, 12, 12, 12)
+        b_lay.setSpacing(8)
+
+        b_hdr = QHBoxLayout()
+        b_icon = QLabel()
+        b_icon.setPixmap(_icon("volume", win.accent).pixmap(18, 18))
+        b_hdr.addWidget(b_icon)
+        b_title = QLabel("CMF Buds Pro 2")
+        b_title.setFont(_font(13, QFont.DemiBold))
+        b_hdr.addWidget(b_title)
+        b_hdr.addStretch(1)
+        self.b_status = QLabel("Connected")
+        self.b_status.setStyleSheet("color: #4CAF50; font-size: 11px; font-weight: bold;")
+        b_hdr.addWidget(self.b_status)
+        b_lay.addLayout(b_hdr)
+
+        # ANC Mode Buttons
+        anc_label = QLabel("Active Noise Cancellation")
+        anc_label.setObjectName("meta")
+        b_lay.addWidget(anc_label)
+
+        anc_btn_box = QHBoxLayout()
+        anc_btn_box.setSpacing(6)
+        self.anc_btns = {}
+        for mode_id, mode_name in [(1, "ANC"), (2, "Transparency"), (0, "Off")]:
+            btn = QPushButton(mode_name)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet("padding: 4px 10px; font-size: 11px;")
+            btn.clicked.connect(lambda _, m=mode_id: self._set_anc(m))
+            self.anc_btns[mode_id] = btn
+            anc_btn_box.addWidget(btn)
+        b_lay.addLayout(anc_btn_box)
+
+        cards_row.addWidget(buds_card, 1)
+
+        # Card 2: Nothing Phone 4b
+        phone_card = QFrame()
+        phone_card.setStyleSheet(f"background: #20242D; border: 1px solid {HAIR}; border-radius: 8px;")
+        p_lay = QVBoxLayout(phone_card)
+        p_lay.setContentsMargins(12, 12, 12, 12)
+        p_lay.setSpacing(8)
+
+        p_hdr = QHBoxLayout()
+        p_icon = QLabel()
+        p_icon.setPixmap(_icon("bolt", win.accent).pixmap(18, 18))
+        p_hdr.addWidget(p_icon)
+        p_title = QLabel("Nothing Phone (4b)")
+        p_title.setFont(_font(13, QFont.DemiBold))
+        p_hdr.addWidget(p_title)
+        p_hdr.addStretch(1)
+        self.p_bat = QLabel("Connected")
+        self.p_bat.setStyleSheet("color: #4CAF50; font-size: 11px; font-weight: bold;")
+        p_hdr.addWidget(self.p_bat)
+        p_lay.addLayout(p_hdr)
+
+        p_btn_box = QHBoxLayout()
+        p_btn_box.setSpacing(6)
+        btn_ring = QPushButton("Find My Phone")
+        btn_ring.setCursor(Qt.PointingHandCursor)
+        btn_ring.setStyleSheet("padding: 4px 10px; font-size: 11px;")
+        btn_ring.clicked.connect(self._ring_phone)
+        p_btn_box.addWidget(btn_ring)
+
+        btn_ping = QPushButton("Ping Phone")
+        btn_ping.setCursor(Qt.PointingHandCursor)
+        btn_ping.setStyleSheet("padding: 4px 10px; font-size: 11px;")
+        btn_ping.clicked.connect(self._ping_phone)
+        p_btn_box.addWidget(btn_ping)
+
+        p_lay.addLayout(p_btn_box)
+        cards_row.addWidget(phone_card, 1)
+
+        layout.addLayout(cards_row)
+
+        # Installed Applications Quick Launcher
+        apps_hdr = QHBoxLayout()
+        apps_label = QLabel("INSTALLED APPLICATIONS")
+        apps_label.setFont(_font(11, QFont.Bold))
+        apps_label.setStyleSheet(f"color: {INK2}; letter-spacing: 1px;")
+        apps_hdr.addWidget(apps_label)
+        apps_hdr.addStretch(1)
+
+        self.apps_search = QLineEdit()
+        self.apps_search.setPlaceholderText("Filter applications...")
+        self.apps_search.setFixedWidth(200)
+        self.apps_search.textChanged.connect(self._filter_apps)
+        apps_hdr.addWidget(self.apps_search)
+        layout.addLayout(apps_hdr)
+
+        self.apps_container = QWidget()
+        self.apps_flow = QVBoxLayout(self.apps_container)
+        self.apps_flow.setContentsMargins(0, 0, 0, 0)
+        self.apps_flow.setSpacing(4)
+        layout.addWidget(self.apps_container)
+
+        self._populate_apps()
+
+    def _open_wheel(self):
+        if self.engine:
+            self.engine.open_wheel()
+        else:
+            from orbit.app import ping_running
+            ping_running("wheel")
+
+    def _open_apps_wheel(self):
+        if self.engine:
+            self.engine.open_apps_wheel()
+        else:
+            from orbit.app import ping_running
+            ping_running("apps")
+
+    def _set_anc(self, mode: int):
+        try:
+            from orbit.platform.linux.nothing_integration import CMFBudsManager
+            mgr = CMFBudsManager()
+            mgr.anc_mode = mode
+            mgr._send_anc(mode)
+            for m, b in self.anc_btns.items():
+                if m == mode:
+                    b.setStyleSheet(f"background: {self.win.accent}; color: #000; font-weight: bold; padding: 4px 10px; font-size: 11px;")
+                else:
+                    b.setStyleSheet("padding: 4px 10px; font-size: 11px;")
+        except Exception:
+            pass
+
+    def _ring_phone(self):
+        try:
+            from orbit.platform.linux.nothing_integration import NothingPhoneManager
+            NothingPhoneManager().ring_phone()
+        except Exception:
+            pass
+
+    def _ping_phone(self):
+        try:
+            from orbit.platform.linux.nothing_integration import NothingPhoneManager
+            NothingPhoneManager().ping_phone()
+        except Exception:
+            pass
+
+    def _populate_apps(self, filter_text: str = ""):
+        while self.apps_flow.count():
+            item = self.apps_flow.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        try:
+            from orbit.platform.linux.apps import scan_applications, launch
+            apps = scan_applications()
+        except Exception:
+            apps = []
+
+        query = filter_text.strip().lower()
+        matched = [a for a in apps if not query or query in a.name.lower() or any(query in c.lower() for c in a.categories)]
+
+        for app in matched[:5]:
+            row = QFrame()
+            row.setStyleSheet("background: #1B1E26; border-radius: 6px; padding: 4px;")
+            rh = QHBoxLayout(row)
+            rh.setContentsMargins(8, 4, 8, 4)
+            rh.setSpacing(10)
+
+            ic_lbl = QLabel()
+            ic_lbl.setPixmap(_icon(app.icon, INK).pixmap(20, 20))
+            rh.addWidget(ic_lbl)
+
+            name_lbl = QLabel(app.name)
+            name_lbl.setFont(_font(12, QFont.DemiBold))
+            rh.addWidget(name_lbl)
+
+            if app.categories:
+                cat_lbl = QLabel(app.categories[0])
+                cat_lbl.setObjectName("meta")
+                rh.addWidget(cat_lbl)
+
+            rh.addStretch(1)
+
+            btn_launch = QPushButton("Launch")
+            btn_launch.setCursor(Qt.PointingHandCursor)
+            btn_launch.setStyleSheet("background: #2D323D; padding: 4px 12px; font-size: 11px;")
+            btn_launch.clicked.connect(lambda _, a=app: launch(a))
+            rh.addWidget(btn_launch)
+
+            self.apps_flow.addWidget(row)
+
+    def _filter_apps(self, text: str):
+        self._populate_apps(text)
+
+
 # ---------------------------------------------------------------- window
 class SettingsWindow(QWidget):
     """`base_cfg`: config.toml merged for this platform, without settings.json.
     `on_save(settings)` is called with the new settings (already written to disk)."""
 
     def __init__(self, base_cfg: dict, current: dict, has_hold: bool, accent: str,
-                 on_save: Callable[[dict], None], settings_path: Path | None = None):
+                 on_save: Callable[[dict], None], settings_path: Path | None = None,
+                 engine=None):
         super().__init__()
         self.base = base_cfg
         self.accent = accent
         self.on_save = on_save
         self.settings_path = settings_path
         self.has_hold = has_hold
+        self.engine = engine
         merged = st.apply(base_cfg, current)
         self.tools = {tid: tools_mod.build(tid, tc) for tid, tc in merged["tools"].items()}
         self.order, enabled = st.wheel_order(merged)
@@ -561,6 +795,11 @@ class SettingsWindow(QWidget):
         v = QVBoxLayout(body)
         v.setContentsMargins(32, 30, 32, 24)
         v.setSpacing(0)
+
+        # Nothing Ecosystem & Applications Control Center
+        self.control_center = ControlCenterCard(self, engine=self.engine)
+        v.addWidget(self.control_center)
+        v.addSpacing(32)
 
         v.addWidget(self._heading("Wheel items"))
         v.addSpacing(4)

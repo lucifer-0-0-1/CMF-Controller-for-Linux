@@ -138,6 +138,9 @@ def parse_args(argv):
     ap.add_argument("--no-elevate", action="store_true", help="don't ask for admin (press-and-hold stays off)")
     ap.add_argument("--dev", action="store_true", help="accept injected events on udp 127.0.0.1:47800")
     ap.add_argument("--debug", action="store_true")
+    ap.add_argument("--wheel", action="store_true", help="show on-screen wheel")
+    ap.add_argument("--apps", action="store_true", help="show applications wheel")
+    ap.add_argument("--gui", "--settings", dest="gui", action="store_true", help="show settings / control center")
     ap.add_argument("--autostart", choices=("on", "off"), help="start with Windows (packaged app, set by the installer)")
     return ap.parse_args(argv)
 
@@ -147,9 +150,14 @@ def main(argv=None):
     args = parse_args(argv)
     setup_logging(args.debug)
 
-    # Already running? Ask it to open Settings and stop here: before the admin prompt,
-    # so a second click on Orbit never asks for admin just to say "already running".
-    if ping_running("show"):
+    # Already running? Route requested action or show settings
+    if args.wheel and ping_running("wheel"):
+        return 0
+    if args.apps and ping_running("apps"):
+        return 0
+    if args.gui and ping_running("show"):
+        return 0
+    if not (args.wheel or args.apps or args.gui) and ping_running("show"):
         log.info("Orbit is already running: opened its Settings")
         return 0
 
@@ -250,9 +258,11 @@ def main(argv=None):
     a_cfg.triggered.connect(lambda: out.launch(str(config_mod.find(args.config))))
     a_log = QAction("Open log")
     a_log.triggered.connect(lambda: out.launch(str(data_dir() / "orbit.log")))
-    a_wheel = QAction("Show wheel")
+    a_wheel = QAction("Show Wheel")
     a_wheel.triggered.connect(lambda: live["engine"].open_wheel())
-    a_settings = QAction("Settings…")
+    a_apps = QAction("Show Applications")
+    a_apps.triggered.connect(lambda: live["engine"].open_apps_wheel())
+    a_settings = QAction("Settings & Control Center…")
 
     def apply_settings(new: dict):
         try:
@@ -282,7 +292,7 @@ def main(argv=None):
         base, _ = config_mod.load(args.config)
         e = live["engine"]
         has_hold = Capability.HOLD in e.caps or Capability.PRESS_RELEASE in e.caps
-        w = SettingsWindow(base, user_settings.load(), has_hold, cfg["ui"]["accent"], apply_settings)
+        w = SettingsWindow(base, user_settings.load(), has_hold, cfg["ui"]["accent"], apply_settings, engine=e)
         windows[:] = [w]
         w.show()
         w.raise_()
@@ -335,7 +345,7 @@ def main(argv=None):
     menu.addAction(a_status)
     menu.addAction(a_on)
     menu.addSeparator()
-    for a in (a_settings, a_wheel, a_cfg, a_log, a_restart):
+    for a in (a_settings, a_wheel, a_apps, a_cfg, a_log, a_restart):
         menu.addAction(a)
     menu.addSeparator()
     for a in toggles:
@@ -348,9 +358,9 @@ def main(argv=None):
     a_on.setChecked(not off_flag.exists())
     set_on(not off_flag.exists())
 
-    # a second launch (Start menu, desktop shortcut) shows Settings instead of nothing
+    # a second launch routes commands to the running instance
     server = QLocalServer()
-    server.setSocketOptions(QLocalServer.WorldAccessOption)   # the second launch isn't elevated yet
+    server.setSocketOptions(QLocalServer.WorldAccessOption)
     QLocalServer.removeServer(INSTANCE)
 
     def on_ping():
@@ -359,14 +369,24 @@ def main(argv=None):
             return
 
         def read():
-            if bytes(conn.readAll()).strip() == b"show":
+            cmd = bytes(conn.readAll()).strip().decode("utf-8", errors="ignore")
+            if cmd == "show":
                 open_settings()
+            elif cmd == "wheel":
+                live["engine"].open_wheel()
+            elif cmd == "apps":
+                live["engine"].open_apps_wheel()
         conn.readyRead.connect(read)
         conn.disconnected.connect(conn.deleteLater)
 
     server.newConnection.connect(on_ping)
     if not server.listen(INSTANCE):
         log.warning("single-instance channel unavailable: %s", server.errorString())
+
+    if args.wheel:
+        QTimer.singleShot(300, lambda: live["engine"].open_wheel())
+    elif args.apps:
+        QTimer.singleShot(300, lambda: live["engine"].open_apps_wheel())
 
     # first run: say where Orbit lives, and open Settings so there's something to see
     welcomed = data_dir() / "welcomed"

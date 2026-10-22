@@ -448,6 +448,26 @@ class PhoneTool(Tool):
             return Hud(self.icon, "Nothing Phone")
 
 
+class AppsTool(Tool):
+    """Applications launcher tool.
+    Opens a secondary wheel listing installed Linux desktop applications.
+    The dial rotates through apps, and pressing launches the selected app.
+    """
+    sticky = False
+
+    def __init__(self, tid: str, cfg: dict):
+        super().__init__(tid, cfg)
+        self.label = cfg.get("label", "Applications")
+        self.icon = cfg.get("icon", "app")
+
+    def fire(self, e):
+        e.open_apps_wheel()
+        return Hud(self.icon, self.label, "Select App")
+
+    def hud(self, e):
+        return Hud(self.icon, self.label, "Applications Wheel")
+
+
 TOOL_TYPES: dict[str, type[Tool]] = {
     "volume": VolumeTool,
     "keys": KeysTool,
@@ -459,6 +479,7 @@ TOOL_TYPES: dict[str, type[Tool]] = {
     "mic_mute": MicMuteTool,
     "anc": ANCTool,
     "phone": PhoneTool,
+    "apps": AppsTool,
 }
 
 

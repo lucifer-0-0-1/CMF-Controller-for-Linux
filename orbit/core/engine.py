@@ -41,6 +41,7 @@ class UI(Protocol):
 class State(Enum):
     TOOL = "tool"
     WHEEL = "wheel"
+    APPS_WHEEL = "apps_wheel"
 
 
 class Engine:
@@ -88,6 +89,8 @@ class Engine:
         self._wheel_last = 0.0
         self._pressed_at: float | None = None
         self._quick = False
+        self._apps_items: list[dict] = []
+        self._app_page: int = 0
         self._sync_passthrough()
 
     # ------------------------------------------------------------------ public
@@ -129,16 +132,18 @@ class Engine:
 
         if self.state == State.WHEEL:
             self._wheel_event(ev)
+        elif self.state == State.APPS_WHEEL:
+            self._apps_wheel_event(ev)
         else:
             self._tool_event(ev)
 
     def tick(self) -> None:
         now = time.monotonic()
         self.tool.tick(self, now)
-        if self.state == State.WHEEL and not self._quick and now - self._wheel_last > self.dismiss_after:
+        if self.state in (State.WHEEL, State.APPS_WHEEL) and not self._quick and now - self._wheel_last > self.dismiss_after:
             # A press arrives ~0.4 s late (firmware waits for double/triple), so letting the
             # highlight stand is the fast path. One-shot actions never fire on timeout.
-            if self.timeout_selects and self.tools[self.wheel_ids[self.index]].sticky:
+            if self.state == State.WHEEL and self.timeout_selects and self.tools[self.wheel_ids[self.index]].sticky:
                 self._commit()
             else:
                 self._cancel()
@@ -251,11 +256,106 @@ class Engine:
         self.tool.enter(self)
         self._sync_passthrough()
 
+    def open_apps_wheel(self, page: int = 0) -> None:
+        """Open secondary wheel displaying installed desktop applications."""
+        try:
+            from orbit.platform.linux.apps import scan_applications
+            apps = scan_applications()
+        except Exception as ex:
+            log.warning("cannot scan applications: %s", ex)
+            apps = []
+
+        if not apps:
+            self.ui.hud(Hud("app", "Applications", "No applications found"))
+            return
+
+        self._all_apps = apps
+        PAGE_SIZE = 8
+        total_pages = max(1, (len(apps) + PAGE_SIZE - 1) // PAGE_SIZE)
+        page = page % total_pages
+        self._app_page = page
+
+        start_idx = page * PAGE_SIZE
+        page_apps = apps[start_idx : start_idx + PAGE_SIZE]
+
+        # Item 0 is Back
+        items = [{
+            "id": "back",
+            "label": "Back",
+            "icon": "arrow_left",
+            "glyph": "‹",
+            "sticky": False,
+        }]
+        for app in page_apps:
+            items.append({
+                "id": f"app:{app.id}",
+                "label": app.name,
+                "icon": app.icon,
+                "glyph": app.name[:2].upper(),
+                "sticky": False,
+                "app_obj": app,
+            })
+
+        if total_pages > 1:
+            next_p = (page + 1) % total_pages + 1
+            items.append({
+                "id": "next_page",
+                "label": f"Page {next_p}/{total_pages} »",
+                "icon": "redo",
+                "glyph": "»",
+                "sticky": False,
+            })
+
+        self.tool.leave(self)
+        self.state = State.APPS_WHEEL
+        self._apps_items = items
+        self.index = 1 if len(items) > 1 else 0
+        self._wheel_last = time.monotonic()
+        self._wheel_spin = SpinTracker()
+        self._sync_passthrough()
+        self.ui.wheel_open(items, self.index)
+
+    def _apps_wheel_event(self, ev: InputEvent) -> None:
+        self._wheel_last = time.monotonic()
+        if ev.kind == Kind.ROTATE:
+            n = len(self._apps_items)
+            self.index = (self.index + self._wheel_steps(ev.delta)) % n
+            self.ui.wheel_move(self.index, 1 if ev.delta > 0 else -1)
+        elif ev.kind == Kind.CLICK:
+            self._commit_apps_wheel()
+        elif ev.kind in (Kind.HOLD, Kind.DOUBLE, Kind.TRIPLE):
+            self.open_wheel()
+
+    def _commit_apps_wheel(self) -> None:
+        if not self._apps_items or self.index >= len(self._apps_items):
+            self.open_wheel()
+            return
+        item = self._apps_items[self.index]
+        if item["id"] == "back":
+            self.open_wheel()
+            return
+        if item["id"] == "next_page":
+            self.open_apps_wheel(page=self._app_page + 1)
+            return
+        if "app_obj" in item:
+            try:
+                from orbit.platform.linux.apps import launch
+                app = item["app_obj"]
+                launch(app)
+                self.ui.wheel_commit(self.index)
+                self.state = State.TOOL
+                self._sync_passthrough()
+                self.tool.enter(self)
+                self.ui.hud(Hud(app.icon, app.name, "Launched", None, 0))
+            except Exception as ex:
+                log.error("failed to launch %s: %s", item.get("label"), ex)
+                self.open_wheel()
+
     def _sync_passthrough(self) -> None:
         """Rotation side effects follow state: the wheel consumes rotation and ducks the
         level (so each detent's native blip is soft); tool mode restores the real level
         first, then passes rotation through or consumes it per tool."""
-        wheel = self.state == State.WHEEL and not self.paused
+        wheel = self.state in (State.WHEEL, State.APPS_WHEEL) and not self.paused
         on = self.paused or (not wheel and self.tool.rotation_passthrough)
         for s in self.rotation_sources:
             if wheel:

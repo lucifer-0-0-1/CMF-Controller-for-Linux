@@ -34,7 +34,7 @@ shortcut = "ctrl+alt+v"
 
 [wheel]
 # Clockwise order, starting at 12 o'clock. 8 or fewer reads best on a dial.
-items = ["volume", "brightness", "switcher", "scroll", "undo", "desktops", "tabs", "voice", "slides", "scrub"]   # zoom: off by default
+items = ["volume", "apps", "brightness", "switcher", "scroll", "undo", "desktops", "tabs", "voice"]
 dismiss_after_ms = 5000
 duck_volume = 0.5           # audio drops to this fraction while the wheel is open (1 = off)
 accel = 1                   # 1 = one item per click. 2 = fast reports move 2 (can skip one on quick deliberate clicks)
@@ -44,7 +44,7 @@ on_timeout = "select"       # "select": keep the highlighted tool; "cancel": kee
 hide_os_volume_flyout = true   # hide the Windows volume bar when the dial causes it (keyboard keys still show it)
 hud_ms = 1400       # how long the HUD pill stays after the last interaction
 scale = 1.0
-accent = "#7C9CFF"
+accent = "#D71921"  # Nothing OS signature red
 appearance = "dark" # dark | light | system (follows the OS)
 
 # ---------------------------------------------------------------- tools
@@ -53,6 +53,11 @@ type = "volume"
 label = "Volume"
 icon = "volume"
 triple = "media:next"
+
+[tools.apps]
+type = "apps"
+label = "Applications"
+icon = "app"
 
 [tools.brightness]
 type = "brightness"        # drives Twinkle Tray, so its slider stays in sync
@@ -171,13 +176,13 @@ icon = "bolt"
 # that platform only, key by key.
 
 [platforms.linux.wheel]
-duck_volume = 1.0           # On Linux: keep listening volume constant when wheel opens
+duck_volume = 1.0           # audio ducking off on Linux: volume does not drop when opening wheel
 
 [platforms.linux.tools.scroll]
-max_gain = 3.0
+max_gain = 1.5             # predictable gain
 notches_per_detent = 1.0
-glide_ms = 180
-ease_ms = 70
+glide_ms = 0               # 0 = momentum stops when dial stops, consistent scrolling
+ease_ms = 60               # quick snappy delivery
 
 [platforms.linux.tools.switcher]
 label = "Windows"

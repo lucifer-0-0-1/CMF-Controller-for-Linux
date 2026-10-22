@@ -7,6 +7,7 @@ be a single character (shown as text) or an absolute path to an SVG.
 from __future__ import annotations
 
 import hashlib
+import os
 import tempfile
 from pathlib import Path
 
@@ -16,25 +17,46 @@ ICON_DIR = Path(__file__).with_name("icons")
 TINT_DIR = Path(tempfile.gettempdir()) / "orbit-icons"
 
 
-def _svg_path(icon: str) -> Path | None:
+def _find_icon(icon: str) -> Path | None:
     p = Path(icon)
-    if p.suffix.lower() == ".svg" and p.is_absolute() and p.exists():
+    if p.is_absolute() and p.exists():
         return p
     f = ICON_DIR / f"{icon}.svg"
-    return f if f.exists() else None
+    if f.exists():
+        return f
+    # Check system application icons on Linux
+    try:
+        from orbit.platform.linux.apps import find_icon_path
+        sys_path = find_icon_path(icon)
+        if sys_path and os.path.isfile(sys_path):
+            return Path(sys_path)
+    except Exception:
+        pass
+    return None
+
+
+def _svg_path(icon: str) -> Path | None:
+    f = _find_icon(icon)
+    return f if (f and f.suffix.lower() == ".svg") else None
 
 
 def has_icon(icon: str) -> bool:
-    return _svg_path(icon) is not None
+    return _find_icon(icon) is not None
 
 
 def tinted_url(icon: str, color: str) -> str:
     """file:// URL of `icon` recoloured to `color` ('#rrggbb'), '' if no SVG.
     Tinting is done on the SVG text (white strokes -> color) and cached, so QML needs
     no shader effect: graphics-effect failures can never make icons disappear."""
-    src = _svg_path(icon)
+    src = _find_icon(icon)
     if src is None:
         return ""
+    # Full color PNG/SVG system icons should be presented directly
+    if src.suffix.lower() == ".png":
+        return QUrl.fromLocalFile(str(src)).toString()
+    if src.suffix.lower() == ".svg" and src.parent != ICON_DIR:
+        return QUrl.fromLocalFile(str(src)).toString()
+
     color = color.lower()
     stroke = f'stroke="{color}"'
     if len(color) == 9:                       # QML's #aarrggbb -> SVG colour + opacity

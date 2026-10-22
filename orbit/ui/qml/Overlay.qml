@@ -149,9 +149,22 @@ QtObject {
                 id: disc
                 anchors.fill: parent
                 radius: width / 2
-                color: ui.surface
-                border.color: ui.edge
+                color: ui.dark ? "#0E0F14" : ui.surface
+                border.color: ui.dark ? Qt.rgba(1, 1, 1, 0.08) : ui.edge
                 border.width: 1
+            }
+
+            // ---- Nothing OS tactile dot-matrix perimeter track (mimicking CMF knurled dial)
+            Repeater {
+                model: 48
+                Rectangle {
+                    readonly property real a: index * (360 / 48)
+                    width: (index % 4 === 0) ? 2.5 * ui.s : 1.8 * ui.s
+                    height: width; radius: width / 2
+                    color: (index % 4 === 0) ? ui.fg(0.25) : ui.fg(0.08)
+                    x: wheel.px(a, wheel.dia / 2 - 6 * ui.s) - width / 2
+                    y: wheel.py(a, wheel.dia / 2 - 6 * ui.s) - height / 2
+                }
             }
 
             // ---- the highlighted item is a light source. Its light falls across the
@@ -294,9 +307,28 @@ QtObject {
             Item {
                 id: centre
                 anchors.centerIn: parent
-                width: wheel.rad * 1.3; height: width
+                width: wheel.rad * 1.35; height: width
                 property real shift: 0
                 property var cur: wheel.items.length ? wheel.items[wheel.index] : ({ icon: "", glyph: "", label: "", sticky: true })
+
+                // Physical dial central cap with subtle Nothing red marker
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.95; height: width; radius: width / 2
+                    color: ui.dark ? "#13141A" : Qt.rgba(0.94, 0.95, 0.97, 0.9)
+                    border.color: ui.dark ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.08)
+                    border.width: 1
+
+                    // Micro dot accent at 12 o'clock
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.topMargin: 5 * ui.s
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 3 * ui.s; height: 3 * ui.s; radius: width / 2
+                        color: ui.accent
+                        opacity: 0.9
+                    }
+                }
 
                 function swap(dir) {
                     swapAnim.stop()
@@ -314,27 +346,33 @@ QtObject {
                     id: content
                     anchors.centerIn: parent
                     anchors.horizontalCenterOffset: centre.shift
-                    spacing: 6 * ui.s
+                    spacing: 5 * ui.s
                     Icon {
                         anchors.horizontalCenter: parent.horizontalCenter
                         name: centre.cur.icon
                         glyph: centre.cur.glyph
-                        size: 36 * ui.s
+                        size: 38 * ui.s
                         color: ui.accent
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: centre.cur.label
-                        font.pixelSize: 17 * ui.s
+                        font.pixelSize: 16 * ui.s
                         font.weight: Font.DemiBold
                         color: ui.ink
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: centre.cur.sticky ? "press to use" : "press to run"
-                        font.pixelSize: 11 * ui.s
-                        font.letterSpacing: 0.4
-                        color: ui.fg(0.40)
+                        text: (centre.cur.id && String(centre.cur.id).indexOf("app:") === 0) ? "press to launch" :
+                              (centre.cur.id === "next_page") ? "press for next" :
+                              (centre.cur.id === "back") ? "press to return" :
+                              centre.cur.sticky ? "press to use" : "press to run"
+                        font.pixelSize: 10.5 * ui.s
+                        font.letterSpacing: 0.6
+                        font.capitalization: Font.AllUppercase
+                        color: ui.fg(0.42)
                     }
                 }
             }
@@ -416,8 +454,8 @@ QtObject {
                 width: row.implicitWidth + 30 * ui.s
                 height: 58 * ui.s
                 radius: height / 2
-                color: ui.surface
-                border.color: ui.edge
+                color: ui.dark ? "#101116" : ui.surface
+                border.color: ui.dark ? Qt.rgba(1, 1, 1, 0.09) : ui.edge
 
                 Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
