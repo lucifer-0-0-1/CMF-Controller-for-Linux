@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QUrl
 
-ICON_DIR = Path(__file__).resolve().parents[2] / "orbit" / "ui" / "icons"
+ICON_DIR = Path(__file__).resolve().parent / "icons"
 TINT_DIR = Path(tempfile.gettempdir()) / "cmf-icons"
 
 
